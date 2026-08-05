@@ -62,6 +62,10 @@
   textarea{ width:100%; min-height:60px; padding:8px; font-size:14px; border:1px solid #ccc; border-radius:8px; font-family:inherit; }
   .sheet .actions{ display:flex; gap:8px; margin-top:14px; }
   .sheet .actions .btn{ flex:1; padding:12px; font-size:15px; }
+  .footerbar{ padding:8px 12px 0; display:flex; flex-direction:column; gap:8px; }
+  .footerbar .btn{ width:100%; padding:12px; }
+  .btn-er{ background:#2e7d32; color:#fff; }
+  .btn-reset{ background:#fff; color:#c0392b; border:1.5px solid #c0392b; }
   .note{ font-size:11.5px; color:#777; padding:6px 12px 12px; }
 </style>
 </head>
@@ -77,7 +81,11 @@
   <div id="status">GPS off. Tap <b>Start GPS</b> and allow location. The form pops when you reach a shop (keep this page open).</div>
   <div id="map"></div>
   <div id="list"></div>
-  <div class="note">Data is saved on this device (survives refresh). Foreground only — a locked/closed phone won't alert. Use "I'm here" on any card if GPS doesn't auto-trigger.</div>
+  <div class="footerbar">
+    <button id="exportReset" class="btn btn-er">⬇ ↺ Export &amp; Reset (end of day)</button>
+    <button id="reset" class="btn btn-reset">↺ Reset only</button>
+  </div>
+  <div class="note">Data is saved on this device (survives refresh). Foreground only — a locked/closed phone won't alert. Use "I'm here" on any card if GPS doesn't auto-trigger. Export to Excel before you reset.</div>
 </div>
 
 <!-- Visit modal -->
@@ -286,14 +294,34 @@ document.getElementById('sSave').onclick=()=>{
 };
 
 // ---- export to Excel ----
-document.getElementById('export').onclick=()=>{
+function buildRows(){
   const rows=[["#","Shop","City","Address","Phone","Status","Outcome / Skip reason",...PRODUCTS,"Notes","Logged at (local)"]];
   STOPS.forEach(s=>{ const r=rec(s[0]); const qs=PRODUCTS.map(p=>(r.items&&r.items[p])||0);
     rows.push([s[0],s[1],s[2],s[4],s[5],r.status||"pending",r.status==="skipped"?(r.skipReason||""):(r.outcome||""),...qs,r.notes||"",r.arrivedAt?new Date(r.arrivedAt).toLocaleString():""]); });
-  const load=cb=>{ if(window.XLSX)return cb(); const sc=document.createElement('script'); sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"; sc.onload=cb; sc.onerror=()=>csvFallback(rows); document.head.appendChild(sc); };
-  load(()=>{ const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Visits"); XLSX.writeFile(wb,"kerala_visits.xlsx"); });
-};
+  return rows;
+}
+function exportExcel(done){
+  const rows=buildRows();
+  const finish=()=>{ if(done) setTimeout(done,1000); };
+  const go=()=>{ try{ const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Visits"); XLSX.writeFile(wb,"kerala_visits.xlsx"); }catch(e){ csvFallback(rows); } finish(); };
+  if(window.XLSX) return go();
+  const sc=document.createElement('script'); sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  sc.onload=go; sc.onerror=()=>{ csvFallback(rows); finish(); }; document.head.appendChild(sc);
+}
 function csvFallback(rows){ const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n"); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="kerala_visits.csv"; a.click(); }
+document.getElementById('export').onclick=()=>exportExcel();
+
+// ---- export & reset / reset ----
+document.getElementById('exportReset').onclick=()=>{
+  if(confirm("Download today's visits to Excel, then clear all data for the next trip?")){
+    exportExcel(()=>{ localStorage.removeItem(KEY); location.reload(); });
+  }
+};
+document.getElementById('reset').onclick=()=>{
+  if(confirm("Clear ALL logged visits and skips and start over?\nThis can't be undone — export to Excel first if you need the data.")){
+    localStorage.removeItem(KEY); location.reload();
+  }
+};
 
 render();
 </script>
