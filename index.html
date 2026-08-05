@@ -62,11 +62,9 @@
   textarea{ width:100%; min-height:60px; padding:8px; font-size:14px; border:1px solid #ccc; border-radius:8px; font-family:inherit; }
   .sheet .actions{ display:flex; gap:8px; margin-top:14px; }
   .sheet .actions .btn{ flex:1; padding:12px; font-size:15px; }
-  .footerbar{ padding:8px 12px 0; display:flex; flex-direction:column; gap:8px; }
-  .footerbar .btn{ width:100%; padding:12px; }
-  .btn-er{ background:#2e7d32; color:#fff; }
-  .btn-reset{ background:#fff; color:#c0392b; border:1.5px solid #c0392b; }
-  .note{ font-size:11.5px; color:#777; padding:6px 12px 12px; }
+  .footerbar{ padding:5px 12px calc(env(safe-area-inset-bottom,0px) + 5px); display:flex; align-items:center; gap:10px; background:#eef1f3; }
+  .btn-reset{ background:#fff; color:#c0392b; border:1.5px solid #c0392b; padding:5px 12px; font-size:12px; flex:0 0 auto; }
+  .note{ font-size:10.5px; color:#888; line-height:1.2; }
 </style>
 </head>
 <body>
@@ -82,10 +80,9 @@
   <div id="map"></div>
   <div id="list"></div>
   <div class="footerbar">
-    <button id="exportReset" class="btn btn-er">⬇ ↺ Export &amp; Reset (end of day)</button>
-    <button id="reset" class="btn btn-reset">↺ Reset only</button>
+    <button id="reset" class="btn btn-reset">↺ Reset</button>
+    <span class="note">Export (top) before reset · alerts work only while app is open</span>
   </div>
-  <div class="note">Data is saved on this device (survives refresh). Foreground only — a locked/closed phone won't alert. Use "I'm here" on any card if GPS doesn't auto-trigger. Export to Excel before you reset.</div>
 </div>
 
 <!-- Visit modal -->
@@ -311,12 +308,7 @@ function exportExcel(done){
 function csvFallback(rows){ const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n"); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="kerala_visits.csv"; a.click(); }
 document.getElementById('export').onclick=()=>exportExcel();
 
-// ---- export & reset / reset ----
-document.getElementById('exportReset').onclick=()=>{
-  if(confirm("Download today's visits to Excel, then clear all data for the next trip?")){
-    exportExcel(()=>{ localStorage.removeItem(KEY); location.reload(); });
-  }
-};
+// ---- reset ----
 document.getElementById('reset').onclick=()=>{
   if(confirm("Clear ALL logged visits and skips and start over?\nThis can't be undone — export to Excel first if you need the data.")){
     localStorage.removeItem(KEY); location.reload();
