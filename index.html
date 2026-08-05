@@ -29,6 +29,12 @@
   .btn-go{ background:#2e7d32; color:#fff; } .btn-go.on{ background:#c0392b; }
   .btn-xl{ background:#fff; color:var(--teal); }
   .btn-sm{ padding:6px 9px; font-size:12px; }
+  .btn-nav{ background:#1F6FB2; color:#fff; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .navopts{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+  .navopts .btn{ padding:15px; font-size:16px; text-align:center; text-decoration:none; display:block; }
+  .nav-g{ background:#1F6FB2; color:#fff; }
+  .nav-a{ background:#333; color:#fff; }
+  .nav-c{ background:#eee; color:#333; }
   #status{ background:#12333e; color:#cfe6ef; font-size:12.5px; padding:6px 12px; }
   #status b{ color:#fff; }
   #map{ height:38vh; min-height:220px; }
@@ -125,6 +131,19 @@
   </div>
 </div>
 
+<!-- Navigate chooser -->
+<div class="overlay" id="navOverlay">
+  <div class="sheet">
+    <h2 id="nTitle">Navigate</h2>
+    <p class="sub">Open directions in…</p>
+    <div class="navopts">
+      <a id="nGoogle" class="btn nav-g" href="#" target="_blank" rel="noopener">🧭 Google Maps</a>
+      <a id="nApple" class="btn nav-a" href="#" target="_blank" rel="noopener">🍎 Apple Maps</a>
+      <button class="btn nav-c" id="nCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const PRODUCTS = ["Beef Cutlet","Kappa Biriyani","Chicken Biriyani","Beef Biriyani","Beef Pickle"];
@@ -201,7 +220,7 @@ function render(){
       <div class="meta"><span class="st ${st}">${st}</span> <span class="dist" id="d${id}"></span></div>
       ${extra}
       <div class="row">
-        <button class="btn btn-sm btn-xl" onclick="target(${id})" style="border:1px solid #ccc">🎯 Target</button>
+        <button class="btn btn-sm btn-nav" onclick="openNav(${id})">🧭 Navigate</button>
         <button class="btn btn-sm" style="background:#2e7d32;color:#fff" onclick="openVisit(${id})">📍 I'm here / Log</button>
         <button class="btn btn-sm" style="background:#c0392b;color:#fff" onclick="openSkip(${id})">⤼ Skip</button>
       </div>`;
@@ -243,6 +262,19 @@ function onPos(p){
     openVisit(near[0]);
   }
 }
+
+// ---- navigate chooser ----
+function openNav(id){
+  const s=byId(id);
+  document.getElementById('nTitle').textContent='Navigate to #'+id+' — '+s[1];
+  document.getElementById('nGoogle').href='https://www.google.com/maps/dir/?api=1&destination='+s[7]+','+s[8]+'&travelmode=driving&dir_action=navigate';
+  document.getElementById('nApple').href='https://maps.apple.com/?daddr='+s[7]+','+s[8]+'&dirflg=d';
+  document.getElementById('navOverlay').classList.add('show');
+}
+function closeNav(){ document.getElementById('navOverlay').classList.remove('show'); }
+document.getElementById('nCancel').onclick=closeNav;
+document.getElementById('nGoogle').addEventListener('click',()=>setTimeout(closeNav,150));
+document.getElementById('nApple').addEventListener('click',()=>setTimeout(closeNav,150));
 
 // ---- visit modal ----
 let visitId=null, chosenOutcome=null;
