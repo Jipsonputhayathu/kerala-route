@@ -37,6 +37,9 @@
   .nav-c{ background:#eee; color:#333; }
   #status{ background:#12333e; color:#cfe6ef; font-size:12.5px; padding:6px 12px; }
   #status b{ color:#fff; }
+  #toolbar{ display:flex; align-items:center; gap:8px; padding:6px 12px; background:#e3e8eb; }
+  .btnbar{ background:#1F6FB2; color:#fff; }
+  #sortInfo{ font-size:11.5px; color:#555; }
   #map{ height:38vh; min-height:220px; }
   #list{ flex:1 1 auto; overflow:auto; padding:8px; }
   .card{ background:#fff; border-radius:10px; padding:10px 12px; margin:0 0 8px; box-shadow:0 1px 3px rgba(0,0,0,.12); border-left:6px solid #ccc; }
@@ -83,6 +86,10 @@
     </div>
   </header>
   <div id="status">GPS off. Tap <b>Start GPS</b> and allow location. The form pops when you reach a shop (keep this page open).</div>
+  <div id="toolbar">
+    <button id="sortToggle" class="btn btn-sm btnbar">📍 Nearest from here</button>
+    <span id="sortInfo">Order: route (1→19)</span>
+  </div>
   <div id="map"></div>
   <div id="list"></div>
   <div class="footerbar">
@@ -204,7 +211,7 @@ function nextTargetId(){
 function render(){
   const list=document.getElementById('list'); list.innerHTML="";
   const done=STOPS.filter(s=>["visited","skipped"].includes(rec(s[0]).status)).length;
-  STOPS.forEach(s=>{
+  orderedStops().forEach(s=>{
     const [id,name,city,tier,addr,phone,hours,lat,lng]=s;
     const r=rec(id); const st=r.status||"pending";
     const card=document.createElement('div');
@@ -230,8 +237,17 @@ function render(){
 }
 
 // ---- target / status ----
-let activeId=null;
+let activeId=null, myPos=null, sortMode='route';
 function target(id){ activeId=id; rec(id).status==="pending"&&(rec(id).status="active"); save(); map.panTo([byId(id)[7],byId(id)[8]]); render(); }
+function orderedStops(){
+  if(sortMode==='nearest' && myPos){
+    const pend=[], done=[];
+    STOPS.forEach(s=>{ (["visited","skipped"].includes(rec(s[0]).status)?done:pend).push(s); });
+    pend.sort((a,b)=>distM(myPos.lat,myPos.lng,a[7],a[8])-distM(myPos.lat,myPos.lng,b[7],b[8]));
+    return pend.concat(done);
+  }
+  return STOPS;
+}
 function byId(id){ return STOPS.find(s=>s[0]===id); }
 
 // ---- GPS ----
@@ -246,6 +262,7 @@ document.getElementById('gps').onclick=()=>{
 };
 function onPos(p){
   const {latitude:la,longitude:lo}=p.coords;
+  myPos={lat:la,lng:lo};
   if(!meMarker){ meMarker=L.circleMarker([la,lo],{radius:8,color:'#fff',weight:3,fillColor:'#1F6FB2',fillOpacity:1}).addTo(map); }
   else meMarker.setLatLng([la,lo]);
   // nearest pending stop
@@ -347,6 +364,20 @@ document.getElementById('reset').onclick=()=>{
   }
 };
 
+// ---- nearest-first sort ----
+document.getElementById('sortToggle').onclick=()=>{
+  if(sortMode==='route'){
+    if(!myPos){ alert('Turn on GPS first (Start GPS), then tap this to sort the shops nearest to you.'); return; }
+    sortMode='nearest';
+  } else sortMode='route';
+  updateSortUI(); render();
+};
+function updateSortUI(){
+  const btn=document.getElementById('sortToggle'), info=document.getElementById('sortInfo');
+  if(sortMode==='nearest'){ btn.textContent='↕ Back to route order'; info.textContent='Order: NEAREST to you (re-sorts after each stop)'; }
+  else { btn.textContent='📍 Nearest from here'; info.textContent='Order: route (1→19)'; }
+}
+updateSortUI();
 render();
 </script>
 </body>
