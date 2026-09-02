@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Kerala Frozen — Köln Route</title>
+<!-- Home-screen install (iPhone: Share → Add to Home Screen) -->
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Köln Route" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#1F4E5F" />
+<link rel="apple-touch-icon" href="icon-180.png" />
+<link rel="icon" href="icon-180.png" />
+<link rel="manifest" href="manifest.json" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+  :root{ --teal:#1F4E5F; --blue:#1F6FB2; }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; height:100%; font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:#1c1c1c; background:#eef1f3; }
+  #app{ display:flex; flex-direction:column; height:100%; }
+  header{ background:var(--teal); color:#fff;
+    padding:calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right,0px) + 12px) 10px calc(env(safe-area-inset-left,0px) + 12px);
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap; position:sticky; top:0; z-index:1200; }
+  header h1{ font-size:15px; margin:0; flex:1 1 100%; }
+  .hbtns{ display:flex; gap:8px; width:100%; }
+  .hbtns .btn{ flex:1; }
+  .btn{ border:0; border-radius:8px; padding:11px 11px; font-size:14px; font-weight:700; cursor:pointer; }
+  .btn-go{ background:#2e7d32; color:#fff; } .btn-go.on{ background:#c0392b; }
+  .btn-xl{ background:#fff; color:var(--teal); }
+  .btn-sm{ padding:6px 9px; font-size:12px; }
+  .btn-nav{ background:#1F6FB2; color:#fff; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+  .navopts{ display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+  .navopts .btn{ padding:15px; font-size:16px; text-align:center; text-decoration:none; display:block; }
+  .nav-g{ background:#1F6FB2; color:#fff; }
+  .nav-a{ background:#333; color:#fff; }
+  .nav-c{ background:#eee; color:#333; }
+  #status{ background:#12333e; color:#cfe6ef; font-size:12.5px; padding:6px 12px; }
+  #status b{ color:#fff; }
+  #toolbar{ display:flex; align-items:center; gap:8px; padding:6px 12px; background:#e3e8eb; }
+  .btnbar{ background:#1F6FB2; color:#fff; }
+  #sortInfo{ font-size:11.5px; color:#555; }
+  #map{ height:38vh; min-height:220px; }
+  #list{ flex:1 1 auto; overflow:auto; padding:8px; }
+  .card{ background:#fff; border-radius:10px; padding:10px 12px; margin:0 0 8px; box-shadow:0 1px 3px rgba(0,0,0,.12); border-left:6px solid #ccc; }
+  .card.active{ border-left-color:var(--blue); box-shadow:0 0 0 2px var(--blue); }
+  .card.visited{ border-left-color:#2e7d32; opacity:.85; }
+  .card.skipped{ border-left-color:#c0392b; opacity:.7; }
+  .card h3{ margin:0 0 3px; font-size:14.5px; }
+  .num{ display:inline-block; min-width:22px; height:22px; line-height:22px; text-align:center; border-radius:50%; color:#fff; font-size:12px; font-weight:700; margin-right:6px; }
+  .meta{ font-size:12px; color:#555; margin:2px 0; }
+  .hours{ font-weight:700; color:#1a7a3a; }
+  .badge{ display:inline-block; font-size:10.5px; font-weight:700; color:#fff; border-radius:10px; padding:1px 7px; margin-left:4px; }
+  .st{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
+  .st.pending{ color:#888; } .st.active{ color:var(--blue); } .st.visited{ color:#2e7d32; } .st.skipped{ color:#c0392b; }
+  .row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .dist{ font-size:12px; color:#b3391a; font-weight:700; }
+  /* modal */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:flex-end; justify-content:center; z-index:2000; }
+  .overlay.show{ display:flex; }
+  .sheet{ background:#fff; width:100%; max-width:560px; border-radius:16px 16px 0 0; padding:16px; max-height:88vh; overflow:auto; }
+  .sheet h2{ margin:0 0 2px; font-size:17px; color:var(--teal); }
+  .sheet .sub{ font-size:12.5px; color:#666; margin:0 0 12px; }
+  .item{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #eee; }
+  .item label{ flex:1 1 auto; font-size:14px; }
+  .item input[type=checkbox]{ width:22px; height:22px; }
+  .item .qty{ width:56px; padding:6px; font-size:14px; border:1px solid #ccc; border-radius:6px; text-align:center; }
+  .outcome{ display:flex; gap:6px; margin:12px 0 6px; flex-wrap:wrap; }
+  .chip{ border:1.5px solid #ccc; border-radius:20px; padding:7px 12px; font-size:13px; cursor:pointer; }
+  .chip.sel{ border-color:var(--teal); background:var(--teal); color:#fff; }
+  textarea{ width:100%; min-height:60px; padding:8px; font-size:14px; border:1px solid #ccc; border-radius:8px; font-family:inherit; }
+  .sheet .actions{ display:flex; gap:8px; margin-top:14px; }
+  .sheet .actions .btn{ flex:1; padding:12px; font-size:15px; }
+  .footerbar{ padding:5px 12px calc(env(safe-area-inset-bottom,0px) + 5px); display:flex; align-items:center; gap:10px; background:#eef1f3; }
+  .btn-reset{ background:#fff; color:#c0392b; border:1.5px solid #c0392b; padding:5px 12px; font-size:12px; flex:0 0 auto; }
+  .note{ font-size:10.5px; color:#888; line-height:1.2; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Kerala Frozen — Köln</h1>
+    <div class="hbtns">
+      <button id="gps" class="btn btn-go">▶ Start GPS</button>
+      <button id="export" class="btn btn-xl">⬇ Excel</button>
+    </div>
+  </header>
+  <div id="status">GPS off. Tap <b>Start GPS</b> and allow location. The form pops when you reach a shop (keep this page open).</div>
+  <div id="toolbar">
+    <button id="sortToggle" class="btn btn-sm btnbar">📍 Nearest from here</button>
+    <span id="sortInfo">Order: route (1→8)</span>
+  </div>
+  <div id="map"></div>
+  <div id="list"></div>
+  <div class="footerbar">
+    <button id="reset" class="btn btn-reset">↺ Reset</button>
+    <span class="note">Export (top) before reset · alerts work only while app is open</span>
+  </div>
+</div>
+
+<!-- Visit modal -->
+<div class="overlay" id="visitOverlay">
+  <div class="sheet">
+    <h2 id="vTitle">Visit</h2>
+    <p class="sub" id="vSub"></p>
+    <div id="items"></div>
+    <div style="font-size:13px;font-weight:700;margin-top:12px">Outcome</div>
+    <div class="outcome" id="outcome">
+      <div class="chip" data-o="Ordered">✅ Ordered</div>
+      <div class="chip" data-o="Interested">🟡 Interested</div>
+      <div class="chip" data-o="Not now">⛔ Not now</div>
+    </div>
+    <textarea id="vNotes" placeholder="Notes (price talked, contact person, follow-up date…)"></textarea>
+    <div class="actions">
+      <button class="btn" style="background:#eee;color:#333" id="vCancel">Cancel</button>
+      <button class="btn" style="background:#2e7d32;color:#fff" id="vSave">Save visit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Skip modal -->
+<div class="overlay" id="skipOverlay">
+  <div class="sheet">
+    <h2 id="sTitle">Skip stop</h2>
+    <p class="sub">Why are you skipping this shop?</p>
+    <div class="outcome" id="skipReasons">
+      <div class="chip" data-r="Closed">Closed</div>
+      <div class="chip" data-r="No time">No time</div>
+      <div class="chip" data-r="Owner away">Owner away</div>
+      <div class="chip" data-r="Not interested">Not interested</div>
+      <div class="chip" data-r="Already supplied">Already supplied</div>
+    </div>
+    <textarea id="sNotes" placeholder="Optional detail…"></textarea>
+    <div class="actions">
+      <button class="btn" style="background:#eee;color:#333" id="sCancel">Cancel</button>
+      <button class="btn" style="background:#c0392b;color:#fff" id="sSave">Confirm skip</button>
+    </div>
+  </div>
+</div>
+
+<!-- Navigate chooser -->
+<div class="overlay" id="navOverlay">
+  <div class="sheet">
+    <h2 id="nTitle">Navigate</h2>
+    <p class="sub">Open directions in…</p>
+    <div class="navopts">
+      <a id="nGoogle" class="btn nav-g" href="#" target="_blank" rel="noopener">🧭 Google Maps</a>
+      <a id="nApple" class="btn nav-a" href="#" target="_blank" rel="noopener">🍎 Apple Maps</a>
+      <button class="btn nav-c" id="nCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const PRODUCTS = ["Beef Cutlet","Kappa Biriyani","Chicken Biriyani","Beef Biriyani","Beef Pickle"];
+const COLORS = { Confirmed:"#2e7d32", Strong:"#66bb6a", Likely:"#f9a825", Verify:"#ef7d1a", "North-Indian":"#9e9e9e" };
+const ARRIVE_M = 110; // arrival radius in metres (tighter — shops cluster in the Altstadt)
+
+// [id,name,city,tier,addr,phone,hours,lat,lng]
+// [id, name, district, tier, full address (used for navigation), phone, hours, lat, lng]
+// Coordinates are approximate (source-estimated) — navigation uses the ADDRESS, which geocodes exactly.
+const STOPS = [
+ [1,"Tropical Foods Supermarket","Köln-Altstadt","Strong","Mühlenbach 8-10, 50676 Köln","—","Hours: verify",50.9329,6.9587],
+ [2,"Asien Bazar – Indische Spezialitäten","Köln-Altstadt","Strong","Fleischmengergasse 31, 50676 Köln","—","Hours: verify",50.9337,6.9463],
+ [3,"Tropical Foods (Corner Shop)","Köln-Altstadt","Strong","Thieboldsgasse 105, 50676 Köln","—","Hours: verify",50.9348,6.9458],
+ [4,"Asiatic Stores Cash & Carry","Köln-Altstadt","Likely","Lungengasse 31, 50676 Köln","—","Wholesale · verify",50.9321,6.9472],
+ [5,"SinghsMart","Köln-Neumarkt","Likely","Neumarkt 33, 50667 Köln","—","Hours: verify",50.9358,6.9475],
+ [6,"go asia Supermarkt Köln","Köln-Innenstadt","Verify","Breite Str. 103-135, 50667 Köln","—","East-Asian + Indian aisle",50.9365,6.9482],
+ [7,"Indische Lebensmittel","Köln-Kalk","Strong","Kalker Hauptstraße 111, 51103 Köln","—","Hours: verify",50.9373,7.0012],
+ [8,"Asia Markt Wing On Hong","Köln-Rodenkirchen","Verify","Marktstraße 1, 50968 Köln","—","East-Asian + Indian section",50.9103,6.9712],
+];
+
+const KEY = "kerala_field_v1";
+let state = JSON.parse(localStorage.getItem(KEY) || "{}"); // {id:{status,items:{},outcome,notes,arrivedAt,skipReason}}
+function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+function rec(id){ return state[id] || (state[id] = {status:"pending"}); }
+
+// ---- map ----
+const map = L.map('map',{scrollWheelZoom:true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+const markers = {};
+const bounds=[];
+STOPS.forEach(s=>{
+  const [id,name,city,tier,addr,phone,hours,lat,lng]=s;
+  const icon=L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,13],
+    html:`<div style="width:26px;height:26px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);background:${COLORS[tier]};color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center">${id}</div>`});
+  markers[id]=L.marker([lat,lng],{icon}).addTo(map).bindPopup(`<b>${id}. ${name}</b><br>${hours}<br>${addr}`);
+  bounds.push([lat,lng]);
+});
+map.fitBounds(bounds,{padding:[40,40]});
+let meMarker=null;
+
+// ---- distance ----
+function distM(a,b,c,d){const R=6371000,t=Math.PI/180;const dLat=(c-a)*t,dLng=(d-b)*t;const x=Math.sin(dLat/2)**2+Math.cos(a*t)*Math.cos(c*t)*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+
+// ---- render list ----
+function nextTargetId(){
+  const pend=STOPS.filter(s=>rec(s[0]).status==="pending"||rec(s[0]).status==="active");
+  return pend.length?pend[0][0]:null;
+}
+function render(){
+  const list=document.getElementById('list'); list.innerHTML="";
+  const done=STOPS.filter(s=>["visited","skipped"].includes(rec(s[0]).status)).length;
+  orderedStops().forEach(s=>{
+    const [id,name,city,tier,addr,phone,hours,lat,lng]=s;
+    const r=rec(id); const st=r.status||"pending";
+    const card=document.createElement('div');
+    card.className="card "+st;
+    let extra="";
+    if(st==="visited"){const its=Object.entries(r.items||{}).filter(([k,v])=>v>0).map(([k,v])=>`${k}×${v}`).join(", ")||"—";extra=`<div class="meta">✅ ${r.outcome||"visited"} · ${its}${r.notes?" · "+r.notes:""}</div>`;}
+    if(st==="skipped"){extra=`<div class="meta">⛔ Skipped — ${r.skipReason||"?"}${r.notes?" ("+r.notes+")":""}</div>`;}
+    card.innerHTML=`
+      <h3><span class="num" style="background:${COLORS[tier]}">${id}</span>${name}
+        <span class="badge" style="background:${COLORS[tier]}">${tier}</span></h3>
+      <div class="meta hours">${hours}</div>
+      <div class="meta">${addr} · ${phone}</div>
+      <div class="meta"><span class="st ${st}">${st}</span> <span class="dist" id="d${id}"></span></div>
+      ${extra}
+      <div class="row">
+        <button class="btn btn-sm btn-nav" onclick="openNav(${id})">🧭 Navigate</button>
+        <button class="btn btn-sm" style="background:#2e7d32;color:#fff" onclick="openVisit(${id})">📍 I'm here / Log</button>
+        <button class="btn btn-sm" style="background:#c0392b;color:#fff" onclick="openSkip(${id})">⤼ Skip</button>
+      </div>`;
+    list.appendChild(card);
+  });
+  document.getElementById('status').innerHTML=`Visited/skipped <b>${done}/${STOPS.length}</b>. `+(gpsOn?statusLive:'GPS off — tap Start GPS.');
+}
+
+// ---- target / status ----
+let activeId=null, myPos=null, sortMode='route';
+const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+function target(id){ activeId=id; rec(id).status==="pending"&&(rec(id).status="active"); save(); map.panTo([byId(id)[7],byId(id)[8]]); render(); }
+function orderedStops(){
+  if(sortMode==='nearest' && myPos){
+    const pend=[], done=[];
+    STOPS.forEach(s=>{ (["visited","skipped"].includes(rec(s[0]).status)?done:pend).push(s); });
+    pend.sort((a,b)=>distM(myPos.lat,myPos.lng,a[7],a[8])-distM(myPos.lat,myPos.lng,b[7],b[8]));
+    return pend.concat(done);
+  }
+  return STOPS;
+}
+function byId(id){ return STOPS.find(s=>s[0]===id); }
+
+// ---- GPS ----
+let gpsOn=false, watchId=null, statusLive="Locating…";
+const triggered={};
+document.getElementById('gps').onclick=()=>{
+  if(isNative){ gpsOn?stopNative():startNative(); return; }
+  if(gpsOn){ navigator.geolocation.clearWatch(watchId); gpsOn=false; document.getElementById('gps').classList.remove('on'); document.getElementById('gps').textContent="▶ Start GPS"; render(); return; }
+  if(!navigator.geolocation){ alert("No geolocation on this device."); return; }
+  if("Notification" in window && Notification.permission==="default") Notification.requestPermission();
+  gpsOn=true; document.getElementById('gps').classList.add('on'); document.getElementById('gps').textContent="⏹ Stop GPS";
+  watchId=navigator.geolocation.watchPosition(onPos,err=>{statusLive="GPS error: "+err.message;render();},{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+};
+function onPos(p){
+  const {latitude:la,longitude:lo}=p.coords;
+  myPos={lat:la,lng:lo};
+  if(!meMarker){ meMarker=L.circleMarker([la,lo],{radius:8,color:'#fff',weight:3,fillColor:'#1F6FB2',fillOpacity:1}).addTo(map); }
+  else meMarker.setLatLng([la,lo]);
+  // nearest pending stop
+  let near=null,nd=1e12;
+  STOPS.forEach(s=>{ const r=rec(s[0]); if(["visited","skipped"].includes(r.status))return; const d=distM(la,lo,s[7],s[8]); if(d<nd){nd=d;near=s;} const el=document.getElementById('d'+s[0]); if(el)el.textContent=(d>1000?(d/1000).toFixed(1)+" km":Math.round(d)+" m"); });
+  if(near){ statusLive=`Next: <b>#${near[0]} ${near[1]}</b> — ${nd>1000?(nd/1000).toFixed(1)+' km':Math.round(nd)+' m'} away`; }
+  else statusLive="All stops done 🎉";
+  document.getElementById('status').innerHTML=`Visited/skipped <b>${STOPS.filter(s=>["visited","skipped"].includes(rec(s[0]).status)).length}/${STOPS.length}</b>. ${statusLive}`;
+  // arrival
+  if(near && nd<=ARRIVE_M && !triggered[near[0]]){
+    triggered[near[0]]=true;
+    if("Notification" in window && Notification.permission==="granted") new Notification("Arrived: "+near[1],{body:near[6]});
+    if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    openVisit(near[0]);
+  }
+}
+
+// ---- navigate chooser ----
+function openNav(id){
+  const s=byId(id);
+  const addr=encodeURIComponent(s[4]); // navigate by street address (geocodes exactly)
+  document.getElementById('nTitle').textContent='Navigate to #'+id+' — '+s[1];
+  document.getElementById('nGoogle').href='https://www.google.com/maps/dir/?api=1&destination='+addr+'&travelmode=driving&dir_action=navigate';
+  document.getElementById('nApple').href='https://maps.apple.com/?daddr='+addr+'&dirflg=d';
+  document.getElementById('navOverlay').classList.add('show');
+}
+function closeNav(){ document.getElementById('navOverlay').classList.remove('show'); }
+document.getElementById('nCancel').onclick=closeNav;
+document.getElementById('nGoogle').addEventListener('click',()=>setTimeout(closeNav,150));
+document.getElementById('nApple').addEventListener('click',()=>setTimeout(closeNav,150));
+
+// ---- visit modal ----
+let visitId=null, chosenOutcome=null;
+function openVisit(id){
+  visitId=id; chosenOutcome=rec(id).outcome||null;
+  const s=byId(id);
+  document.getElementById('vTitle').textContent=`${id}. ${s[1]}`;
+  document.getElementById('vSub').textContent=`${s[4]} · ${s[6]}`;
+  const box=document.getElementById('items'); box.innerHTML="";
+  const its=rec(id).items||{};
+  PRODUCTS.forEach((pr,i)=>{
+    const row=document.createElement('div'); row.className="item";
+    row.innerHTML=`<input type="checkbox" id="c_${i}" ${its[pr]>0?'checked':''}>
+      <label for="c_${i}">${pr}</label>
+      <input type="number" min="0" class="qty" id="q_${i}" value="${its[pr]||0}" placeholder="qty">`;
+    box.appendChild(row);
+  });
+  document.querySelectorAll('#outcome .chip').forEach(c=>c.classList.toggle('sel',c.dataset.o===chosenOutcome));
+  document.getElementById('vNotes').value=rec(id).notes||"";
+  document.getElementById('visitOverlay').classList.add('show');
+}
+document.querySelectorAll('#outcome .chip').forEach(c=>c.onclick=()=>{chosenOutcome=c.dataset.o;document.querySelectorAll('#outcome .chip').forEach(x=>x.classList.toggle('sel',x===c));});
+document.getElementById('vCancel').onclick=()=>document.getElementById('visitOverlay').classList.remove('show');
+document.getElementById('vSave').onclick=()=>{
+  const r=rec(visitId); r.items={};
+  PRODUCTS.forEach((pr,i)=>{ const on=document.getElementById('c_'+i).checked; let q=parseInt(document.getElementById('q_'+i).value)||0; if(on&&q===0)q=1; if(!on)q=0; r.items[pr]=q; });
+  r.outcome=chosenOutcome||"Interested"; r.notes=document.getElementById('vNotes').value.trim();
+  r.status="visited"; r.arrivedAt=new Date().toISOString();
+  save(); document.getElementById('visitOverlay').classList.remove('show'); render();
+};
+
+// ---- skip modal ----
+let skipId=null, chosenReason=null;
+function openSkip(id){ skipId=id; chosenReason=rec(id).skipReason||null;
+  document.getElementById('sTitle').textContent=`Skip #${id} — ${byId(id)[1]}`;
+  document.querySelectorAll('#skipReasons .chip').forEach(c=>c.classList.toggle('sel',c.dataset.r===chosenReason));
+  document.getElementById('sNotes').value=rec(id).notes||"";
+  document.getElementById('skipOverlay').classList.add('show');
+}
+document.querySelectorAll('#skipReasons .chip').forEach(c=>c.onclick=()=>{chosenReason=c.dataset.r;document.querySelectorAll('#skipReasons .chip').forEach(x=>x.classList.toggle('sel',x===c));});
+document.getElementById('sCancel').onclick=()=>document.getElementById('skipOverlay').classList.remove('show');
+document.getElementById('sSave').onclick=()=>{
+  if(!chosenReason){ alert("Pick a reason."); return; }
+  const r=rec(skipId); r.status="skipped"; r.skipReason=chosenReason; r.notes=document.getElementById('sNotes').value.trim(); r.arrivedAt=new Date().toISOString();
+  save(); document.getElementById('skipOverlay').classList.remove('show'); render();
+};
+
+// ---- export to Excel ----
+function buildRows(){
+  const rows=[["#","Shop","City","Address","Phone","Status","Outcome / Skip reason",...PRODUCTS,"Notes","Logged at (local)"]];
+  STOPS.forEach(s=>{ const r=rec(s[0]); const qs=PRODUCTS.map(p=>(r.items&&r.items[p])||0);
+    rows.push([s[0],s[1],s[2],s[4],s[5],r.status||"pending",r.status==="skipped"?(r.skipReason||""):(r.outcome||""),...qs,r.notes||"",r.arrivedAt?new Date(r.arrivedAt).toLocaleString():""]); });
+  return rows;
+}
+function exportExcel(done){
+  const rows=buildRows();
+  const finish=()=>{ if(done) setTimeout(done,1000); };
+  const go=()=>{ try{ const ws=XLSX.utils.aoa_to_sheet(rows); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Visits"); XLSX.writeFile(wb,"kerala_visits.xlsx"); }catch(e){ csvFallback(rows); } finish(); };
+  if(window.XLSX) return go();
+  const sc=document.createElement('script'); sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+  sc.onload=go; sc.onerror=()=>{ csvFallback(rows); finish(); }; document.head.appendChild(sc);
+}
+function csvFallback(rows){ const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(",")).join("\n"); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"})); a.download="kerala_visits.csv"; a.click(); }
+document.getElementById('export').onclick=()=>exportExcel();
+
+// ---- reset ----
+document.getElementById('reset').onclick=()=>{
+  if(confirm("Clear ALL logged visits and skips and start over?\nThis can't be undone — export to Excel first if you need the data.")){
+    localStorage.removeItem(KEY); location.reload();
+  }
+};
+
+// ---- NATIVE (Capacitor) background GPS + local notifications ----
+// Harmless in a browser (isNative=false); active only inside the native app.
+let nativeWatcher=null;
+async function startNative(){
+  const { LocalNotifications, BackgroundGeolocation } = window.Capacitor.Plugins;
+  try{ await LocalNotifications.requestPermissions(); }catch(e){}
+  try{
+    nativeWatcher = await BackgroundGeolocation.addWatcher({
+      requestPermissions:true, stale:false, distanceFilter:25,
+      backgroundTitle:"Kerala Route is guiding you",
+      backgroundMessage:"Tracking your position to alert you at each shop."
+    }, (location, err)=>{
+      if(err){ if(err.code==="NOT_AUTHORIZED"){ if(confirm("Location is off for this app. Open Settings to allow \"Always\"?")) BackgroundGeolocation.openSettings(); } return; }
+      if(location) nativeOnPos(location.latitude, location.longitude);
+    });
+    gpsOn=true; const g=document.getElementById('gps'); g.classList.add('on'); g.textContent="⏹ Stop GPS"; statusLive="Locating…"; render();
+  }catch(e){ alert("Could not start background GPS: "+e.message); }
+}
+async function stopNative(){
+  const { BackgroundGeolocation } = window.Capacitor.Plugins;
+  if(nativeWatcher){ try{ await BackgroundGeolocation.removeWatcher({id:nativeWatcher}); }catch(e){} nativeWatcher=null; }
+  gpsOn=false; const g=document.getElementById('gps'); g.classList.remove('on'); g.textContent="▶ Start GPS"; render();
+}
+function nativeOnPos(la,lo){
+  const { LocalNotifications } = window.Capacitor.Plugins;
+  myPos={lat:la,lng:lo};
+  if(!meMarker){ meMarker=L.circleMarker([la,lo],{radius:8,color:'#fff',weight:3,fillColor:'#1F6FB2',fillOpacity:1}).addTo(map); } else meMarker.setLatLng([la,lo]);
+  let near=null,nd=1e12;
+  STOPS.forEach(s=>{ const r=rec(s[0]); if(["visited","skipped"].includes(r.status))return; const d=distM(la,lo,s[7],s[8]); if(d<nd){nd=d;near=s;} const el=document.getElementById('d'+s[0]); if(el)el.textContent=(d>1000?(d/1000).toFixed(1)+' km':Math.round(d)+' m'); });
+  const done=STOPS.filter(s=>["visited","skipped"].includes(rec(s[0]).status)).length;
+  if(near){ statusLive='Next: <b>#'+near[0]+' '+near[1]+'</b> — '+(nd>1000?(nd/1000).toFixed(1)+' km':Math.round(nd)+' m')+' away'; }
+  else statusLive="All stops done 🎉";
+  document.getElementById('status').innerHTML='Visited/skipped <b>'+done+'/'+STOPS.length+'</b>. '+statusLive;
+  if(near && nd<=ARRIVE_M && !triggered[near[0]]){
+    triggered[near[0]]=true;
+    try{ LocalNotifications.schedule({ notifications:[{ id:(near[0]*1000+Math.floor(nd)), title:"Arrived: "+near[1], body:near[6]+" — tap to log the visit." }] }); }catch(e){}
+    openVisit(near[0]);
+  }
+}
+
+// ---- nearest-first sort ----
+document.getElementById('sortToggle').onclick=()=>{
+  if(sortMode==='route'){
+    if(!myPos){ alert('Turn on GPS first (Start GPS), then tap this to sort the shops nearest to you.'); return; }
+    sortMode='nearest';
+  } else sortMode='route';
+  updateSortUI(); render();
+};
+function updateSortUI(){
+  const btn=document.getElementById('sortToggle'), info=document.getElementById('sortInfo');
+  if(sortMode==='nearest'){ btn.textContent='↕ Back to route order'; info.textContent='Order: NEAREST to you (re-sorts after each stop)'; }
+  else { btn.textContent='📍 Nearest from here'; info.textContent='Order: route (1→8)'; }
+}
+updateSortUI();
+render();
+</script>
+</body>
+</html>
